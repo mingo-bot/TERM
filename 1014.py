@@ -7,26 +7,26 @@ class Piece:
     def get_moves(self, board):
         raise NotImplementedError # 어미 클래스 말고 자식 클래스에서 구현
 
-class Pawn(Piece): # 앞으로 한 칸, 첫 이동 시 두 칸도 가능, 대각선 잡기 (아직 미완성)
+class Pawn(Piece):
     def get_moves(self, board):
         moves = []
-        row, col = self.position
-        direction = -1 if self.color == "white" else 1
+        row, col = self.position # 현재 위치
+        direction = -1 if self.color == "white" else 1 # 전진 방향
         # 앞으로 한 칸
-        next_move = row + direction 
-        if 0 <= next_move < 8 and board.grid[next_move][col] is None:
+        next_move = row + direction # 이동했을 때의 행 좌표
+        if 0 <= next_move < 8 and board.grid[next_move][col] is None: 
             moves.append((next_move, col))
             # 앞으로 두 칸
-            start_move = 6 if self.color == "white" else 1
-            if row == start_move:
-                two_move = row + 2 * direction
+            start_move = 6 if self.color == "white" else 1 # 폰이 처음 배치되는 행
+            if row == start_move: # 행이 시작 위치와 같을 때만 허용
+                two_move = row + 2 * direction # direction은 백이면 -1, 흑이면 1
                 if board.grid[two_move][col] is None:
                     moves.append((two_move, col))
         # 대각선
-        for delta_col in [-1, 1]:
-            diagonal_row, diagonal_col = row + direction, col + delta_col
+        for delta_col in [-1, 1]: # delta_col은 열의 변화량
+            diagonal_row, diagonal_col = row + direction, col + delta_col # 대각선 한 칸 앞 좌표
             if 0 <= diagonal_row < 8 and 0 <= diagonal_col < 8:
-                target = board.grid[diagonal_row][diagonal_col]
+                target = board.grid[diagonal_row][diagonal_col] # 대각선 칸에 있는 말 정보
                 if target and target.color != self.color:
                     moves.append((diagonal_row, diagonal_col))
         return moves
