@@ -1,3 +1,5 @@
+import sys
+
 class Piece:
     def __init__(self, color, position, symbol):
         self.color = color # 말의 색
@@ -312,10 +314,11 @@ class Board:
         self.current_turn = "black" if self.current_turn == "white" else "white"
         print(f"다음 턴: {self.current_turn}")
 
-        # 체크 감지
+        # 체크/체크메이트 판정
         if self.in_check(self.current_turn):
             if self.is_checkmate(self.current_turn):
-                print(f"{self.current_turn} 킹이 체크메이트 당했습니다!")
+                print(f"{self.current_turn} 킹이 체크메이트 당했습니다! 게임 종료!")
+                sys.exit() 
             else:
                 print(f"{self.current_turn} 킹이 체크 상태입니다!")
 
