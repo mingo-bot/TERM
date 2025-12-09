@@ -1,0 +1,563 @@
+import sys
+import os
+import tkinter as tk
+
+class Piece:
+    def __init__(self, color, position, symbol):
+        self.color = color # 말의 색
+        self.position = position # 말의 위치
+        self.symbol = symbol # 기호 (e.g., ♟)
+    
+    def get_moves(self, board):
+        raise NotImplementedError # 어미 클래스 말고 자식 클래스에서 구현
+
+class Pawn(Piece):
+    def get_moves(self, board):
+        moves = []
+        row, col = self.position # 현재 위치
+        direction = -1 if self.color == "white" else 1 # 전진 방향
+        # 앞으로 한 칸
+        next_move = row + direction # 이동했을 때의 행 좌표
+        if 0 <= next_move < 8 and board.grid[next_move][col] is None: 
+            moves.append((next_move, col))
+            # 앞으로 두 칸
+            start_move = 6 if self.color == "white" else 1 # 폰이 처음 배치되는 행
+            if row == start_move: # 행이 시작 위치와 같을 때만 허용
+                two_move = row + 2 * direction # direction은 백이면 -1, 흑이면 1
+                if board.grid[two_move][col] is None:
+                    moves.append((two_move, col))
+        # 대각선
+        for delta_col in [-1, 1]: # delta_col은 열의 변화량
+            diagonal_row, diagonal_col = row + direction, col + delta_col # 대각선 한 칸 앞 좌표
+            if 0 <= diagonal_row < 8 and 0 <= diagonal_col < 8:
+                target = board.grid[diagonal_row][diagonal_col] # 대각선 칸에 있는 말 정보
+                if target and target.color != self.color:
+                    moves.append((diagonal_row, diagonal_col))
+        return moves
+    
+class Rook(Piece):
+    def get_moves(self, board):
+        moves = []
+        row, col = self.position # 현재 룩 위치
+        directions = [
+            (-1, 0), # ↑
+            (1, 0), # ↓
+            (0, -1), # ←
+            (0, 1) # →
+        ]
+        for delta_row, delta_col in directions:
+            next_row = row + delta_row # 현재 위치에서 행 이동
+            next_col = col + delta_col # 현재 위치에서 열 이동
+            while 0 <= next_row < 8 and 0 <= next_col < 8:
+                target = board.grid[next_row][next_col] # 이동할 칸에 말 확인
+                if target is None: # 빈 칸이면
+                    moves.append((next_row, next_col)) # 이동가능
+                elif target.color != self.color: # 상대 말이면
+                    moves.append((next_row,next_col)) # 잡을 수 있음
+                    break
+                else: # 같은 색 말이면
+                    break
+                # 조건이 맞으면 직선 방향으로 한 칸 전진 반복
+                next_row += delta_row
+                next_col += delta_col
+        return moves
+
+class Knight(Piece):
+    def get_moves(self, board):
+        moves = []
+        row, col = self.position # 현재 나이트 위치
+        directions = [
+            (-2, -1), (-2, 1), # 위로 2칸 + 좌우 1칸
+            (-1, -2), (-1, 2), # 위로 1칸 + 좌우 2칸
+            (1, -2), (1, 2), # 아래로 1칸 + 좌우 2칸
+            (2, -1), (2, 1) # 아래로 2칸 + 좌우 1칸
+        ]
+        for delta_row, delta_col in directions:
+            next_row = row + delta_row
+            next_col = col + delta_col
+            if 0 <= next_row < 8 and 0 <= next_col < 8:
+                target = board.grid[next_row][next_col]
+                if target is None:
+                    moves.append((next_row,next_col))
+                elif target.color != self.color:
+                    moves.append((next_row, next_col))
+        return moves
+
+class Bishop(Piece):
+    def get_moves(self, board):
+        moves = []
+        row, col = self.position  # 현재 비숍 위치
+        directions = [
+            (-1, -1), # ↖ 
+            (-1, 1), # ↗ 
+            (1, -1), # ↙
+            (1, 1) # ↘ 
+        ]
+        for delta_row, delta_col in directions:
+            next_row = row + delta_row
+            next_col = col + delta_col
+
+            # 체스판 범위 안에서 계속 전진
+            while 0 <= next_row < 8 and 0 <= next_col < 8:
+                target = board.grid[next_row][next_col]
+                if target is None: # 빈 칸이면 
+                    moves.append((next_row, next_col))
+                elif target.color != self.color: # 상대 말이면
+                    moves.append((next_row, next_col))
+                    break  
+                else: # 같은 색 말이면 막혀서 이동 불가
+                    break
+                # 조건이 맞으면 한 칸 전진 반복
+                next_row += delta_row
+                next_col += delta_col
+        return moves
+    
+class Queen(Piece):
+    def get_moves(self, board):
+        moves = []
+        row, col = self.position  # 현재 퀸 위치
+        directions = [
+            (-1, 0), # ↑ 
+            (1, 0), # ↓ 
+            (0, -1), # ← 
+            (0, 1), # → 
+            (-1, -1), # ↖
+            (-1, 1), # ↗ 
+            (1, -1), # ↙ 
+            (1, 1) # ↘ 
+        ]
+        for delta_row, delta_col in directions:
+            next_row = row + delta_row
+            next_col = col + delta_col
+            while 0 <= next_row < 8 and 0 <= next_col < 8:
+                target = board.grid[next_row][next_col]
+                if target is None: # 빈 칸이면
+                    moves.append((next_row, next_col))
+                elif target.color != self.color: # 상대 말이면 
+                    moves.append((next_row, next_col))
+                    break
+                else: # 같은 색 말이면 막혀서 이동 불가
+                    break
+                # 조건이 맞으면 한 칸 전진 반복
+                next_row += delta_row
+                next_col += delta_col
+        return moves 
+
+class King(Piece):
+    def get_moves(self, board):
+        moves = []
+        row, col = self.position  # 현재 킹 위치
+
+        # 킹의 8가지 이동 방향 (상하좌우 + 대각선)
+        directions = [
+            (-1, 0),  # ↑ 위
+            (1, 0),   # ↓ 아래
+            (0, -1),  # ← 왼쪽
+            (0, 1),   # → 오른쪽
+            (-1, -1), # ↖ 위-왼쪽
+            (-1, 1),  # ↗ 위-오른쪽
+            (1, -1),  # ↙ 아래-왼쪽
+            (1, 1)    # ↘ 아래-오른쪽
+        ]
+        for delta_row, delta_col in directions:
+            next_row = row + delta_row
+            next_col = col + delta_col
+            if 0 <= next_row < 8 and 0 <= next_col < 8:
+                target = board.grid[next_row][next_col]
+                if target is None: # 빈 칸이면 이동 가능
+                    moves.append((next_row, next_col))
+                elif target.color != self.color: # 상대 말이면 잡을 수 있음
+                    moves.append((next_row, next_col))
+                # 같은 색 말이면 이동 불가
+        return moves   
+
+def clear_screen():
+    os.system('cls' if os.name == 'nt' else 'clear')
+
+# 체스판 클래스
+class Board:
+    def __init__(self):
+        self.grid = [[None for _ in range(8)] for _ in range(8)]
+        self.setup_pieces()
+        self.current_turn = "white" # 게임 시작은 백부터
+
+        #잡힌 기물 저장
+        self.captured_white = [] # 백이 잡은 기물
+        self.captured_black = [] # 흑이 잡은 기물
+
+    def setup_pieces(self): # 흑
+        self.grid[0] = [
+            Rook("black", (0, 0), "♜"),
+            Knight("black", (0, 1), "♞"),
+            Bishop("black", (0, 2), "♝"),
+            Queen("black", (0, 3), "♛"),
+            King("black", (0, 4), "♚"),
+            Bishop("black", (0, 5), "♝"),
+            Knight("black", (0, 6), "♞"),
+            Rook("black", (0, 7), "♜")
+        ]
+        self.grid[1] = [Pawn("black", (1, i), "♟") for i in range(8)]
+
+        self.grid[6] = [Pawn("white", (6, i), "♙") for i in range(8)] # 백
+        self.grid[7] = [
+            Rook("white", (7, 0), "♖"),
+            Knight("white", (7, 1), "♘"),
+            Bishop("white", (7, 2), "♗"),
+            Queen("white", (7, 3), "♕"),
+            King("white", (7, 4), "♔"),
+            Bishop("white", (7, 5), "♗"),
+            Knight("white", (7, 6), "♘"),
+            Rook("white", (7, 7), "♖")
+        ]
+
+    def to_chess_notation(self, row, col): # 체스 표기법으로 변환
+        eng = "abcdefgh"
+        num = "87654321"
+        return eng[col] + num[row]
+    
+    def from_chess_notation(self, square): # 체스 표기법에서 변환
+        eng = "abcdefgh"
+        num = "87654321"
+        col = eng.index(square[0])
+        row = num.index(square[1])
+        return (row, col)
+
+    # 체스판 출력    
+    def print_board(self):
+        print(f"흑이 잡은 기물: {' '.join(self.captured_black) if self.captured_black else '없음'}")
+        print(f"백이 잡은 기물: {' '.join(self.captured_white) if self.captured_white else '없음'}\n")
+
+        for r in range(8):
+            row = []
+            for c in range(8):
+                piece = self.grid[r][c]
+                row.append(piece.symbol if piece else "·")
+            print(8 - r, " ".join(row))
+        print("  a b c d e f g h\n")
+
+    def find_king(self, color): # 턴 마다 킹의 위치를 찾아 반환
+        for r in range(8):
+            for c in range(8):
+                piece = self.grid[r][c]
+                if piece and isinstance(piece, King) and piece.color == color:
+                    return (r, c)
+        return None # 킹이 없으면 None (게임 종료)
+
+    def in_check(self, color): # 자신의 킹이 공격받고 있는지 확인
+        king_position = self.find_king(color)
+        if not king_position:
+            return False  # 킹이 없으면 False (게임 종료)
+        
+        opponent_color = "black" if color == "white" else "white" # 상대 색상 결정
+       
+        # 상대 말들의 이동 가능 칸 확인
+        for r in range(8):
+            for c in range(8):
+                piece = self.grid[r][c]
+                if piece and piece.color == opponent_color:
+                    moves = piece.get_moves(self) # 상대 말의 이동 가능 위치
+                    if king_position in moves:
+                        return True
+        return False
+
+# 체크메이트 확인
+    def is_checkmate(self, color):
+        if not self.in_check(color): # 체크 상태가 아니면 체크메이트도 아님
+            return False
+
+        # 해당 색 모든 말의 이동을 시도 (킹을 지킬 수 있는지)
+        for r in range(8):
+            for c in range(8):
+                piece = self.grid[r][c]
+                if piece and piece.color == color: 
+                    for move in piece.get_moves(self):
+                        # 가상 이동 시도 (체스판에 반영X)
+                        backup_piece = self.grid[move[0]][move[1]]
+                        original_pos = piece.position 
+                        self.grid[move[0]][move[1]] = piece 
+                        self.grid[r][c] = None 
+                        piece.position = move
+
+                        still_in_check = self.in_check(color) # 이동 후에도 체크 상태인지 확인
+
+                        # 이동 되돌리기
+                        self.grid[r][c] = piece
+                        self.grid[move[0]][move[1]] = backup_piece
+                        piece.position = original_pos
+
+                        # 체크에서 벗어날 수 있는 수가 있으면 체크메이트 아님
+                        if not still_in_check:
+                            return False
+                        
+        return True # 모든 수가 체크 상태라면 체크메이트
+    
+# 스테일메이트
+    def is_stalemate(self, color):
+        if self.in_check(color): # 체크 상태면 스테일메이트가 아님
+            return False
+
+        # 해당 색 모든 말의 이동을 시도
+        for r in range(8):
+            for c in range(8):
+                piece = self.grid[r][c]
+                if piece and piece.color == color:
+                    for move in piece.get_moves(self):
+                        # 가상 이동 시도
+                        backup_piece = self.grid[move[0]][move[1]]
+                        original_pos = piece.position
+
+                        self.grid[move[0]][move[1]] = piece
+                        self.grid[r][c] = None
+                        piece.position = move
+
+                        still_in_check = self.in_check(color) # 이동 후 체크 상태인지 확인
+
+                        # 이동 되돌리기
+                        self.grid[r][c] = piece
+                        self.grid[move[0]][move[1]] = backup_piece
+                        piece.position = original_pos
+
+                        # 가능한 수가 있으면 스테일메이트 아님
+                        if not still_in_check:
+                            return False
+
+        return True # 모든 수가 불가능하면 스테일메이트
+    
+    def get_legal_moves(self, piece):   # ← 여기 붙이면 됨
+        legal_moves = []
+        for move in piece.get_moves(self):
+            r, c = move
+            backup_piece = self.grid[r][c]
+            original_pos = piece.position
+
+            # 가상 이동
+            self.grid[r][c] = piece
+            self.grid[original_pos[0]][original_pos[1]] = None
+            piece.position = (r, c)
+
+            # 체크 여부 확인
+            if not self.in_check(piece.color):
+                legal_moves.append(move)
+
+            # 되돌리기
+            self.grid[original_pos[0]][original_pos[1]] = piece
+            self.grid[r][c] = backup_piece
+            piece.position = original_pos
+
+        return legal_moves
+
+    def move_piece(self, start: str, end: str): #말 이동 함수
+        start_row, start_col = self.from_chess_notation(start)
+        end_row, end_col = self.from_chess_notation(end)
+
+        piece = self.grid[start_row][start_col] # 시작 위치에 있는 말
+        if piece is None: 
+            print("해당 위치에 말이 없습니다.")
+            return False
+        
+        # 턴 확인
+        if piece.color != self.current_turn:
+            print(f"지금은 {self.current_turn} 차례입니다. {piece.color} 말은 움직일 수 없습니다.")
+            return False
+
+        # 이동 가능한 좌표 목록 가져오기
+        possible_moves = self.get_legal_moves(piece) 
+        if (end_row, end_col) not in possible_moves:
+            print("해당 위치로 이동할 수 없습니다.")
+            return False
+        
+        target = self.grid[end_row][end_col] # 도착 위치에 있는 말
+        if target:
+            print(f"{target.color} { target.__class__.__name__}을 잡았습니다.")
+            if target.color == "white":
+                self.captured_black.append(target.symbol)  # 흑이 백 기물을 잡음
+            else:
+                self.captured_white.append(target.symbol)  # 백이 흑 기물을 잡음
+        
+        # 실제 이동 처리
+        self.grid[end_row][end_col] = piece # 도착 위치에 말 배치
+        self.grid[start_row][start_col] = None # 원래 자리 비우기
+        piece.position = (end_row, end_col) # 말의 위치 정보 업데이트
+        
+        # 폰 프로모션
+        if isinstance(piece, Pawn):
+            if (piece.color == "white" and end_row == 0) or (piece.color == "black" and end_row == 7):
+                return True
+
+        # 턴 교체
+        self.current_turn = "black" if self.current_turn == "white" else "white"
+
+        # 터미널 청소 + 새로 출력
+        clear_screen()
+        self.print_board()
+        print(f"{piece.color} {piece.__class__.__name__}이(가) "f"{start} → {end} 로 이동했습니다.e2")
+
+        # 체크/체크메이트 판정
+        if self.in_check(self.current_turn):
+            if self.is_checkmate(self.current_turn):
+                print(f"{self.current_turn} 킹이 체크메이트 당했습니다! 게임 종료!")
+                sys.exit() 
+            else:
+                print(f"{self.current_turn} 킹이 체크 상태입니다!")
+        else:
+        # 스테일메이트 판정
+            if self.is_stalemate(self.current_turn):
+                print("스테일메이트! 무승부로 게임 종료!")
+                sys.exit()
+        
+        return True
+    
+class ChessUI:
+    def __init__(self, board):
+        self.board = board
+        self.root = tk.Tk()
+        self.root.title("Chess")
+        self.canvas = tk.Canvas(self.root, width=480, height=480)
+        self.canvas.pack()
+        self.selected = None
+        self.highlight_ids = []  # 이동 가능 칸 표시 저장
+        self.draw_board()
+        self.draw_pieces()
+        self.canvas.bind("<Button-1>", self.on_click)
+
+    def draw_board(self):
+        colors = ["#F1D196", "#945E0C"]
+        for row in range(8):
+            for col in range(8):
+                x1 = col * 60
+                y1 = row * 60
+                x2 = x1 + 60
+                y2 = y1 + 60
+                color = colors[(row + col) % 2]
+                self.canvas.create_rectangle(x1, y1, x2, y2, fill=color, outline="")
+
+    def draw_pieces(self):
+        self.canvas.delete("piece")
+        for row in range(8):
+            for col in range(8):
+                piece = self.board.grid[row][col] # 체스판 배열에서 말 객체를 가져옴
+                if piece:
+                    x = col * 60 + 30
+                    y = row * 60 + 30
+                    self.canvas.create_text(x, y, text=piece.symbol, font=("Arial", 24), tags="piece")
+
+    def highlight_moves(self, moves):
+        # 기존 하이라이트 제거
+        for hid in self.highlight_ids:
+            self.canvas.delete(hid)
+        self.highlight_ids.clear()
+
+        # 새로운 이동 가능 칸 표시 (사각형 반투명 그림자)
+        for (row, col) in moves:
+            x1 = col * 60
+            y1 = row * 60
+            x2 = x1 + 60
+            y2 = y1 + 60
+            hid = self.canvas.create_rectangle(
+                x1, y1, x2, y2,
+                fill="black",       # 검정/회색 계열
+                stipple="gray25",   # 점무늬 패턴으로 반투명 효과
+                outline="",         # 테두리 제거
+                tags="highlight"
+            )
+            self.highlight_ids.append(hid)
+
+    def promote_pawn_ui(self, piece, row, col):
+        # 말 아이콘과 종류 매핑
+        options = {
+            "Q": "♕" if piece.color == "white" else "♛",
+            "N": "♘" if piece.color == "white" else "♞",
+            "R": "♖" if piece.color == "white" else "♜",
+            "B": "♗" if piece.color == "white" else "♝"
+        }
+
+        # 작은 팝업 창 생성
+        win = tk.Toplevel(self.root)
+        win.title("프로모션 선택")
+        
+        x = self.root.winfo_pointerx()
+        y = self.root.winfo_pointery()
+        win.geometry(f"+{x}+{y}")
+
+        def set_piece(choice):
+            symbol = options[choice]
+            if choice == "Q":
+                new_piece = Queen(piece.color, (row, col), symbol)
+            elif choice == "N":
+                new_piece = Knight(piece.color, (row, col), symbol)
+            elif choice == "R":
+                new_piece = Rook(piece.color, (row, col), symbol)
+            elif choice == "B":
+                new_piece = Bishop(piece.color, (row, col), symbol)
+
+            self.board.grid[row][col] = new_piece
+            win.destroy()
+            self.draw_board()
+            self.draw_pieces()
+
+        # 버튼을 세로로 배치
+        for key in ["Q", "N", "R", "B"]:
+            tk.Button(win, text=options[key], font=("Arial", 24),
+                    command=lambda k=key: set_piece(k)).pack(pady=5)
+
+    def on_click(self, event):
+        col = event.x // 60
+        row = event.y // 60
+
+        if self.selected is None:
+            # 첫 번째 클릭: 말 선택
+            piece = self.board.grid[row][col]
+            if piece and piece.color == self.board.current_turn:
+                self.selected = (row, col)
+                moves = self.board.get_legal_moves(piece)
+                self.highlight_moves(moves)
+        else:
+            # 두 번째 클릭: 이동 시도
+            start = self.board.to_chess_notation(*self.selected)
+            end = self.board.to_chess_notation(row, col)
+            moved = self.board.move_piece(start, end)
+
+            if moved:
+                self.draw_board()
+                self.draw_pieces()
+                print(f"{self.board.current_turn} 차례입니다.")
+
+                # 이동된 말 확인
+                piece = self.board.grid[row][col]
+                # 폰이 마지막 rank에 도달했으면 프로모션 UI 호출
+                if isinstance(piece, Pawn):
+                    if (piece.color == "white" and row == 0) or (piece.color == "black" and row == 7):
+                        self.promote_pawn_ui(piece, row, col)
+
+            # 선택 초기화 + 그림자 제거
+            self.selected = None
+            self.highlight_moves([])
+
+    def run(self):
+        self.root.mainloop()
+
+# 메인 실행 함수
+def play_game():
+    board = Board()
+    board.print_board()
+
+    while True:
+        print(f"{board.current_turn} 차례입니다.")
+        move = input("이동할 말을 입력하세요 (예: e2 e4): ")
+
+        # 입력 형식 검사
+        try:
+            start, end = move.split()
+        except ValueError:
+            print("입력 형식이 잘못되었습니다. 예: e2 e4")
+            continue
+
+        success = board.move_piece(start, end)
+        if not success:
+            print("잘못된 입력입니다. 다시 시도하세요.")
+
+if __name__ == "__main__":
+    #play_game()
+    board = Board()
+    ui = ChessUI(board)
+    ui.run()
